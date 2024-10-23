@@ -1,0 +1,113 @@
+---
+title: "Week 4 Discussion Section"
+author: "Rachel Swick"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# Load packages
+library(tidyverse)
+library(spData)
+library(spDataLarge)
+library(sf)
+library(stars)
+library(terra)
+library(kableExtra)
+```
+
+```{r}
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+peru <- stars::read_stars(here::here("data", "PER_elv.tif"))
+peru <- rast(peru)
+```
+
+```{r}
+# Histogram of dem
+hist(dem)
+```
+
+```{r}
+# Boxplot of dem
+boxplot(dem)
+```
+
+```{r}
+# Reclassify dem
+# create reclassification matrix
+reclassify <- matrix(c(-Inf, 300, 1, 
+                       300, 500, 2, 
+                       500, Inf, 3),
+                       ncol = 3, byrow = TRUE)
+
+# use reclassification matrix to reclassify elevation raster
+reclassified <- classify(dem, rcl = reclassify)
+
+zonal(dem, reclassified, fun = "mean") %>%
+  kable(col.names = c("Elevation zone", "Mean elevation (m)")) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+# define NDVI as the normalized difference between NIR and red bands
+ndvi_fun <- function(nir, red){
+  (nir - red) / (nir + red)
+}
+
+# apply NDVI function to Landsat bands 3 & 4
+ndvi_rast <- lapp(landsat[[c(3, 4)]], fun = ndvi_fun)
+```
+
+```{r}
+# define NDWI as the normalized difference between NIR and green bands
+ndwi_fun <- function(nir, green){
+  (green - nir) / (green + nir)
+}
+
+# apply NDVI function to Landsat bands 3 & 4
+ndwi_rast <- lapp(landsat[[c(2, 4)]], fun = ndwi_fun)
+```
+
+```{r}
+plot(ndwi_rast)
+plot(ndvi_rast)
+```
+
+```{r}
+# stack rasters
+combine <- c(ndvi_rast, ndwi_rast)
+
+plot(combine, main = c("NDVI", "NDWI"))
+
+# calculate the correlation between raster layers 
+terra::layerCor(combine, fun = cor)
+```
+
+```{r}
+# create raster mask of the same resolution and extent
+rmask <- peru
+
+# set all cells with elevation equal to 0 meters to NA
+rmask[rmask = 0] <- NA
+ 
+
+ocean_dis <- terra::distance(rmask)
+
+          
+```
+
+
+
+
+
+
+
+
+
+
+
+
